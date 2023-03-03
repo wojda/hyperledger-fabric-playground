@@ -1,0 +1,84 @@
+services:
+
+  root-ca:
+    container_name: root-ca
+    image: hyperledger/fabric-ca:${FABRIC_CA_VERSION}
+    command: sh -c 'fabric-ca-server start -d -b root-ca:root-ca-pw --port 7052'
+    environment:
+      - FABRIC_CA_SERVER_HOME=/tmp/ca
+      - FABRIC_CA_SERVER_TLS_ENABLED=false
+      - FABRIC_CA_SERVER_CSR_CN=root-ca
+      - FABRIC_CA_SERVER_CA_NAME=root-ca
+      - FABRIC_CA_SERVER_CSR_HOSTS=root-ca
+      - FABRIC_CA_SERVER_DEBUG=true
+      - FABRIC_CA_SERVER_SIGNING_PROFILES_CA_CACONSTRAINT_MAXPATHLEN=1
+      - FABRIC_CA_SERVER_DB_TYPE=postgres
+      - FABRIC_CA_SERVER_DB_DATASOURCE=host=ca-db port=5432 user=postgres password=adminpsql dbname=fabric_ca sslmode=disable
+    volumes:
+      - ./data/root-ca/:/tmp/ca
+    networks:
+      - fabric
+
+  intermediate-ca-1:
+    container_name: intermediate-ca-1
+    image: hyperledger/fabric-ca:${FABRIC_CA_VERSION}
+    command: sh -c 'fabric-ca-server start -d -b admin-1:adminpw-1 --port 7052'
+    environment:
+      - FABRIC_CA_SERVER_HOME=/tmp/hyperledger/fabric-ca/crypto
+      - FABRIC_CA_SERVER_TLS_ENABLED=false
+      - FABRIC_CA_SERVER_CSR_HOSTS=intermediate-ca-1
+      - FABRIC_CA_SERVER_DEBUG=true
+      - FABRIC_CA_SERVER_DB_TYPE=postgres
+      - FABRIC_CA_SERVER_DB_DATASOURCE=host=ca-db port=5432 user=postgres password=adminpsql dbname=fabric_ca sslmode=disable
+      - FABRIC_CA_SERVER_INTERMEDIATE_PARENTSERVER_URL=http://ca1-enroll:ca1-enroll@root-ca:7052
+      - FABRIC_CA_SERVER_INTERMEDIATE_PARENTSERVER_CANAME=root-ca
+      - FABRIC_CA_SERVER_ENROLLMENT_PROFILE=ca
+    volumes:
+      - ./data/intermediate-ca-1/:/tmp/hyperledger/fabric-ca
+    networks:
+      - fabric
+
+  intermediate-ca-2:
+    container_name: intermediate-ca-2
+    image: hyperledger/fabric-ca:${FABRIC_CA_VERSION}
+    command: sh -c 'fabric-ca-server start -d -b admin-2:adminpw-2 --port 7052'
+    environment:
+      - FABRIC_CA_SERVER_HOME=/tmp/hyperledger/fabric-ca/crypto
+      - FABRIC_CA_SERVER_TLS_ENABLED=false
+      - FABRIC_CA_SERVER_CSR_HOSTS=intermediate-ca-2
+      - FABRIC_CA_SERVER_DEBUG=true
+      - FABRIC_CA_SERVER_DB_TYPE=postgres
+      - FABRIC_CA_SERVER_DB_DATASOURCE=host=ca-db port=5432 user=postgres password=adminpsql dbname=fabric_ca sslmode=disable
+      - FABRIC_CA_SERVER_INTERMEDIATE_PARENTSERVER_URL=http://ca2-enroll:ca2-enroll@root-ca:7052
+      - FABRIC_CA_SERVER_INTERMEDIATE_PARENTSERVER_CANAME=root-ca
+      - FABRIC_CA_SERVER_ENROLLMENT_PROFILE=ca
+    volumes:
+      - ./data/intermediate-ca-2/:/tmp/hyperledger/fabric-ca
+    networks:
+      - fabric
+
+  ca-client:
+    container_name: ca-client
+    image: hyperledger/fabric-ca:${FABRIC_CA_VERSION}
+    command: ["sh", "-c", "trap : TERM INT; sleep infinity & wait" ]
+    volumes:
+      - ./data/ca-client/:/etc/ca-client/
+      - ./scripts/:/opt/scripts/
+    networks:
+      - fabric
+
+  ca-db:
+    container_name: ca-db
+    image: postgres
+    environment:
+      - PGDATA=/tmp/postgres/data
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=adminpsql
+      - POSTGRES_DB=postgres
+    volumes:
+      - ./data/ca-db/data:/tmp/postgres/data
+    networks:
+      - fabric
+
+networks:
+  fabric:
